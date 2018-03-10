@@ -182,3 +182,48 @@ async def test_flow_link_unknown_host(hass):
     assert result['errors'] == {
         'base': 'register_failed'
     }
+
+
+async def test_bridge_discovery(hass):
+    """Test a bridge being discovered."""
+    flow = hue.HueFlowHandler()
+    flow.hass = hass
+
+    result = await flow.async_step_discovery({
+        'host': '0.0.0.0',
+        'serial': '1234'
+    })
+
+    assert result['type'] == 'form'
+    assert result['step_id'] == 'link'
+
+
+async def test_bridge_discovery_emulated_hue(hass):
+    """Test if discovery info is from an emulated hue instance."""
+    flow = hue.HueFlowHandler()
+    flow.hass = hass
+
+    result = await flow.async_step_discovery({
+        'name': 'HASS Bridge',
+        'host': '0.0.0.0',
+        'serial': '1234'
+    })
+
+    assert result['type'] == 'abort'
+
+
+async def test_bridge_discovery_already_configured(hass):
+    """Test if a discovered bridge has already been configured."""
+    MockConfigEntry(domain='hue', data={
+        'bridge_id': '1234'
+    }).add_to_hass(hass)
+
+    flow = hue.HueFlowHandler()
+    flow.hass = hass
+
+    result = await flow.async_step_discovery({
+        'host': '0.0.0.0',
+        'serial': '1234'
+    })
+
+    assert result['type'] == 'abort'
