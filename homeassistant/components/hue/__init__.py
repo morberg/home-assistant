@@ -71,6 +71,7 @@ async def async_setup(hass, config):
         conf = {}
 
     hass.data[DOMAIN] = {}
+    configured = _configured_hosts(hass)
 
     # User has configured bridges
     if CONF_BRIDGES in conf:
@@ -78,23 +79,25 @@ async def async_setup(hass, config):
 
     # Component is part of config but no bridges specified, discover.
     elif DOMAIN in config:
-        # Filter out configured hosts. They will be set up via config entries
-        # after setup is done.
-        configured = _configured_hosts(hass)
-
         # discover from nupnp
         websession = aiohttp_client.async_get_clientsession(hass)
 
         async with websession.get(API_NUPNP) as req:
             hosts = await req.json()
 
-        # Run through config schema to populate defaults
-        bridges = [BRIDGE_CONFIG_SCHEMA({
-            CONF_HOST: entry['internalipaddress'],
-            # Careful with using entry['id'] for other reasons. The value is in
-            # lowercase while it is returned uppercase from the hub.
-            CONF_FILENAME: '.hue_{}.conf'.format(entry['id']),
-        }) for entry in hosts if entry['internalipaddress'] not in configured]
+        bridges = []
+        for entry in hosts:
+            # Filter out already configured hosts
+            if entry['internalipaddress'] in configured:
+                continue
+
+            # Run through config schema to populate defaults
+            bridges.append(BRIDGE_CONFIG_SCHEMA({
+                CONF_HOST: entry['internalipaddress'],
+                # Careful with using entry['id'] for other reasons. The
+                # value is in lowercase but is returned uppercase from hub.
+                CONF_FILENAME: '.hue_{}.conf'.format(entry['id']),
+            }))
     else:
         # Component not specified in config, we're loaded via discovery
         bridges = []
@@ -102,37 +105,29 @@ async def async_setup(hass, config):
     if not bridges:
         return True
 
-    await asyncio.wait([
-        _async_setup_bridge(hass, bridge_conf)
-        for bridge_conf in bridges
-    ])
+    for bridge_conf in bridges:
+        host = bridge_conf[CONF_HOST]
+
+        # Store config in hass.data so the config entry can find it
+        hass.data[DOMAIN][host] = bridge_conf
+
+        # If configured, the bridge will be set up during config entry phase
+        if host in configured:
+            return
+
+        # No existing config entry found, try importing it or trigger link
+        # config flow if no existing auth. Because we're inside the setup of
+        # this component we'll have to use hass.async_add_job to avoid a
+        # deadlock: creating a config entry will set up the component but the
+        # setup would wait with setting up till the entry is created!
+        hass.async_add_job(hass.config_entries.flow.async_init(
+            DOMAIN, source='import', data={
+                'host': bridge_conf[CONF_HOST],
+                'path': bridge_conf[CONF_FILENAME],
+            }
+        ))
 
     return True
-
-
-async def _async_setup_bridge(hass, bridge_conf):
-    """Helper method for setup_platform to setup a given Hue bridge."""
-    host = bridge_conf[CONF_HOST]
-
-    # Store config in hass.data so the config entry can find it
-    hass.data[DOMAIN][host] = bridge_conf
-
-    # If existing entry, do nothing. The bridge will be set up during the
-    # config entry setup phase
-    if host in _configured_hosts(hass):
-        return
-
-    # No existing config entry found, try importing it or trigger link flow.
-    # Because we're inside the setup of this component we'll have to use
-    # hass.async_add_job to avoid a deadlock: creating a config entry will set
-    # up the component but the setup would wait with setting up till the entry
-    # is created!
-    hass.async_add_job(hass.config_entries.flow.async_init(
-        DOMAIN, source='import', data={
-            'host': bridge_conf[CONF_HOST],
-            'path': bridge_conf[CONF_FILENAME],
-        }
-    ))
 
 
 async def async_setup_entry(hass, entry):
