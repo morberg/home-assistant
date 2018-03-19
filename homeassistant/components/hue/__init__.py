@@ -113,7 +113,7 @@ async def async_setup(hass, config):
 
         # If configured, the bridge will be set up during config entry phase
         if host in configured:
-            return
+            continue
 
         # No existing config entry found, try importing it or trigger link
         # config flow if no existing auth. Because we're inside the setup of
