@@ -119,7 +119,7 @@ async def async_setup(hass, config):
         # config flow if no existing auth. Because we're inside the setup of
         # this component we'll have to use hass.async_add_job to avoid a
         # deadlock: creating a config entry will set up the component but the
-        # setup would wait with setting up till the entry is created!
+        # setup would block till the entry is created!
         hass.async_add_job(hass.config_entries.flow.async_init(
             DOMAIN, source='import', data={
                 'host': bridge_conf[CONF_HOST],
