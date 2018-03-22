@@ -191,9 +191,15 @@ class HueBridge(object):
                 self.config_entry.data['username']
             )
         except AuthenticationRequired:
-            # usernames can become invalid if hub is reset or user removed
-            # TODO: Remove self.config_entry (which we're setting up!). Start config flow.
-            # Raise ConfigEntryNoAuth ?
+            # usernames can become invalid if hub is reset or user removed.
+            # We are going to fail the config entry setup and initiate a new
+            # linking procedure. When linking succeeds, it will remove the
+            # old config entry.
+            self.hass.async_add_job(self.hass.config_entries.flow.async_init(
+                DOMAIN, source='import', data={
+                    'host': host,
+                }
+            ))
             return False
 
         except CannotConnect:
@@ -326,7 +332,7 @@ class HueFlowHandler(config_entries.ConfigFlowHandler):
                     self.hass, self.host, username=None
                 )
 
-                return self._entry_from_bridge(bridge)
+                return await self._entry_from_bridge(bridge)
             except AuthenticationRequired:
                 errors['base'] = 'register_failed'
 
@@ -389,10 +395,14 @@ class HueFlowHandler(config_entries.ConfigFlowHandler):
         will ask user to link the bridge.
         """
         host = import_info['host']
-        path = import_info['path']
+        path = import_info.get('path')
 
-        username = await self.hass.async_add_job(
-            _find_username_from_config, self.hass, self.hass.config.path(path))
+        if path is not None:
+            username = await self.hass.async_add_job(
+                _find_username_from_config, self.hass,
+                self.hass.config.path(path))
+        else:
+            username = None
 
         try:
             bridge = await _get_bridge(
@@ -401,7 +411,7 @@ class HueFlowHandler(config_entries.ConfigFlowHandler):
 
             _LOGGER.info('Imported authentication for %s from %s', host, path)
 
-            return self._entry_from_bridge(bridge)
+            return await self._entry_from_bridge(bridge)
         except AuthenticationRequired:
             self.host = host
 
@@ -419,14 +429,23 @@ class HueFlowHandler(config_entries.ConfigFlowHandler):
                               host)
             return self.async_abort(reason='unknown')
 
-    def _entry_from_bridge(self, bridge):
+    async def _entry_from_bridge(self, bridge):
         """Return a config entry from an initialized bridge."""
-        # TODO: make sure that we remove all entries of hubs with same ID
+        # Remove all other entries of hubs with same ID
+        bridge_id = bridge.config.bridgeid
+        same_hub_entries = [entry.entry_id for entry
+                            in self.hass.config_entries.async_entries(DOMAIN)
+                            if entry.data['bridge_id'] == bridge_id]
+
+        if same_hub_entries:
+            await asyncio.wait([self.hass.config_entries.async_remove(entry_id)
+                                for entry_id in same_hub_entries])
+
         return self.async_create_entry(
             title=bridge.config.name,
             data={
                 'host': bridge.host,
-                'bridge_id': bridge.config.bridgeid,
+                'bridge_id': bridge_id,
                 'username': bridge.username,
             }
         )
