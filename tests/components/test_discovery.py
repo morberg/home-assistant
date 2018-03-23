@@ -157,6 +157,7 @@ def test_load_component_hassio(hass):
 
 
 async def test_discover_config_flow(hass):
+    """Test discovery triggering a config flow."""
     discovery_info = {
         'hello': 'world'
     }
