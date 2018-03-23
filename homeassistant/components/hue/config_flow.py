@@ -23,7 +23,10 @@ def configured_hosts(hass):
 
 
 def _find_username_from_config(hass, filename):
-    """Load username from config."""
+    """Load username from config.
+
+    This was a legacy way of configuring Hue until Home Assistant 0.67.
+    """
     path = hass.config.path(filename)
 
     if not os.path.isfile(path):

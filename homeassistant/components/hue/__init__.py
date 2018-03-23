@@ -14,6 +14,7 @@ from homeassistant.helpers import aiohttp_client, config_validation as cv
 
 from .const import DOMAIN, API_NUPNP
 from .bridge import HueBridge
+# Loading the config flow file will register the flow
 from .config_flow import configured_hosts
 
 REQUIREMENTS = ['aiohue==1.2.0']
