@@ -100,12 +100,11 @@ class Light(HomeAccessory):
 
     def set_color_temperature(self, value):
         """Set color temperature if call came from HomeKit."""
+        _LOGGER.debug('%s: Set color temperature to %s', self._entity_id, value)
         self._flag[CHAR_COLOR_TEMPERATURE] = True
-        if self._features & SUPPORT_COLOR_TEMP:
-            _LOGGER.debug('%s: Set color temperature to %s', self._entity_id, value)
-            self.char_color_temperature.set_value(value, should_callback=False)
-            self._hass.components.light.turn_on(
-                self._entity_id, color_temp=value)
+        self.char_color_temperature.set_value(value, should_callback=False)
+        self._hass.components.light.turn_on(
+            self._entity_id, color_temp=value)
 
     def set_saturation(self, value):
         """Set saturation if call came from HomeKit."""
