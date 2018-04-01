@@ -21,7 +21,7 @@ RGB_COLOR = 'rgb_color'
 class Light(HomeAccessory):
     """Generate a Light accessory for a light entity.
 
-    Currently supports: state, brightness, rgb_color.
+    Currently supports: state, brightness, color temperature, rgb_color.
     """
 
     def __init__(self, hass, entity_id, name, *args, **kwargs):
