@@ -19,7 +19,7 @@ requests_mock==1.4
 
 
 # homeassistant.components.homekit
-HAP-python==1.1.7
+HAP-python==1.1.8
 
 # homeassistant.components.notify.html5
 PyJWT==1.6.0
@@ -201,9 +201,6 @@ wakeonlan==1.0.0
 
 # homeassistant.components.cloud
 warrant==0.6.1
-
-# homeassistant.components.folder_watcher
-watchdog==0.8.3
 
 # homeassistant.components.sensor.yahoo_finance
 yahoo-finance==1.4.0
